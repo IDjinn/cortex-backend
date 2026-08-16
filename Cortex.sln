@@ -1,0 +1,21 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cortex.Core", "Cortex.Core\Cortex.Core.csproj", "{09A07892-D47A-45E0-9124-04A6E8DE7C30}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D3DA2161-935F-4F42-8203-12BAE09B58A1}"
+	ProjectSection(SolutionItems) = preProject
+		compose.yaml = compose.yaml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{09A07892-D47A-45E0-9124-04A6E8DE7C30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09A07892-D47A-45E0-9124-04A6E8DE7C30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09A07892-D47A-45E0-9124-04A6E8DE7C30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09A07892-D47A-45E0-9124-04A6E8DE7C30}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

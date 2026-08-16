@@ -1,0 +1,35 @@
+﻿services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cortex-postgres
+    environment:
+      POSTGRES_USER: cortex
+      POSTGRES_PASSWORD: cortex_dev
+      POSTGRES_DB: cortex
+    ports:
+      - "5432:5432"
+    volumes:
+      - cortex_pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cortex -d cortex"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cortex.core:
+    image: cortex.core
+    build:
+      context: .
+      dockerfile: Cortex.Core/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=cortex;Username=cortex;Password=cortex_dev"
+    ports:
+      - "5172:5172"
+
+volumes:
+  cortex_pgdata:
