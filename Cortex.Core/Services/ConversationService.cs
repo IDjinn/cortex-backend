@@ -10,7 +10,7 @@ public interface IConversationService
     Task<List<Conversation>> ListAsync(Guid userId, CancellationToken ct = default);
     Task<Conversation?> GetAsync(Guid userId, Guid id, CancellationToken ct = default);
     Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, CancellationToken ct = default);
-    Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, CancellationToken ct = default);
+    Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid userId, Guid id, CancellationToken ct = default);
     Task<Message> AppendMessageAsync(Guid conversationId, MessageRole role, string content, string? model, CancellationToken ct = default);
     Task FinalizeAssistantMessageAsync(Guid messageId, int? tokensIn, int? tokensOut, string? error, CancellationToken ct = default);
@@ -48,12 +48,15 @@ public class ConversationService : IConversationService
         return conv;
     }
 
-    public async Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, CancellationToken ct = default)
     {
         var conv = await _db.Conversations.FirstOrDefaultAsync(c => c.UserId == userId && c.Id == id, ct);
         if (conv is null) return false;
         if (title is not null) conv.Title = title;
         if (pinned is not null) conv.Pinned = pinned.Value;
+        // Switching models mid-conversation (provider must accompany a model change).
+        if (provider is not null) conv.Provider = provider.Value;
+        if (!string.IsNullOrWhiteSpace(model)) conv.Model = model;
         conv.Touch();
         await _db.SaveChangesAsync(ct);
         return true;

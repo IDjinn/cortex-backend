@@ -50,7 +50,7 @@ public class ConversationsController : ControllerBase
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateConversationRequest req, CancellationToken ct)
     {
-        var ok = await _svc.UpdateAsync(_me.UserId, id, req.Title, req.Pinned, ct);
+        var ok = await _svc.UpdateAsync(_me.UserId, id, req.Title, req.Pinned, req.Provider, req.Model, ct);
         return ok ? NoContent() : NotFound();
     }
 

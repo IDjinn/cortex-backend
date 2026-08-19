@@ -25,7 +25,9 @@ public record CreateConversationRequest(
 
 public record UpdateConversationRequest(
     string? Title,
-    bool? Pinned);
+    bool? Pinned,
+    ChatProviderKind? Provider = null,
+    string? Model = null);
 
 public record ConversationResponse(
     Guid Id,

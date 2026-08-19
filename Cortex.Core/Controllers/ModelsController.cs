@@ -16,11 +16,13 @@ public class ModelsController : ControllerBase
 {
     private readonly IModelService _models;
     private readonly ProviderOptions _providers;
+    private readonly IProviderKeyStore _keyStore;
 
-    public ModelsController(IModelService models, IOptions<ProviderOptions> providers)
+    public ModelsController(IModelService models, IOptions<ProviderOptions> providers, IProviderKeyStore keyStore)
     {
         _models = models;
         _providers = providers.Value;
+        _keyStore = keyStore;
     }
 
     [HttpGet]
@@ -38,6 +40,13 @@ public class ModelsController : ControllerBase
         // llama.cpp / Ollama on another host) — never override a cloud provider's URL.
         if (!string.IsNullOrWhiteSpace(baseUrl) && p is not (ChatProviderKind.Ollama or ChatProviderKind.LmStudio))
             return BadRequest(new ErrorDetail("baseUrl is only allowed for local providers"));
+
+        // BYOK resolution mirrors chat: header key > user vault (when authenticated) > server key.
+        if (string.IsNullOrWhiteSpace(providerKey) && User.Identity?.IsAuthenticated == true &&
+            Guid.TryParse(User.FindFirst("sub")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+        {
+            providerKey = await _keyStore.GetKeyAsync(userId, p, ct);
+        }
 
         var context = new ProviderCallContext(
             ApiKey: providerKey,
