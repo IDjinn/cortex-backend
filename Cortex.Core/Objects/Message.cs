@@ -12,6 +12,10 @@ public class Message
     public string? Model { get; set; }
     public int? TokensIn { get; set; }
     public int? TokensOut { get; set; }
+
+    /// <summary>USD cost of the turn (tokens × model price); null for local/free models.</summary>
+    public decimal? Cost { get; set; }
+
     public string? Error { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

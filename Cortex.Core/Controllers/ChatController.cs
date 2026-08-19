@@ -71,8 +71,18 @@ public class ChatController : ControllerBase
                     case ChatTurnEvent.ToolCallChunk tc:
                         await SendEvent("toolCall", new { id = tc.Id, name = tc.Name, arguments = tc.ArgumentsJson });
                         break;
+                    case ChatTurnEvent.Notice n:
+                        await SendEvent("notice", new { message = n.Message });
+                        break;
                     case ChatTurnEvent.Completed c:
-                        await SendEvent("done", new { tokensIn = c.TokensIn, tokensOut = c.TokensOut });
+                        await SendEvent("done", new
+                        {
+                            tokensIn = c.TokensIn,
+                            tokensOut = c.TokensOut,
+                            provider = c.Provider,
+                            model = c.Model,
+                            costUsd = c.CostUsd
+                        });
                         break;
                     case ChatTurnEvent.Failed f:
                         await SendEvent("error", new { message = f.Message });

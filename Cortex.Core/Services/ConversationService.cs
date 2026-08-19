@@ -1,5 +1,6 @@
 using Cortex.Core.Auth;
 using Cortex.Core.Data;
+using Cortex.Core.Dtos;
 using Cortex.Core.Objects;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +11,11 @@ public interface IConversationService
     Task<List<Conversation>> ListAsync(Guid userId, CancellationToken ct = default);
     Task<Conversation?> GetAsync(Guid userId, Guid id, CancellationToken ct = default);
     Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, CancellationToken ct = default);
-    Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, CancellationToken ct = default);
+    Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid userId, Guid id, CancellationToken ct = default);
     Task<Message> AppendMessageAsync(Guid conversationId, MessageRole role, string content, string? model, CancellationToken ct = default);
     Task FinalizeAssistantMessageAsync(Guid messageId, int? tokensIn, int? tokensOut, string? error, CancellationToken ct = default);
+    Task<int> ImportAsync(Guid userId, IReadOnlyList<ImportConversationDto> conversations, CancellationToken ct = default);
 }
 
 public class ConversationService : IConversationService
@@ -48,7 +50,7 @@ public class ConversationService : IConversationService
         return conv;
     }
 
-    public async Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, CancellationToken ct = default)
     {
         var conv = await _db.Conversations.FirstOrDefaultAsync(c => c.UserId == userId && c.Id == id, ct);
         if (conv is null) return false;
@@ -57,6 +59,11 @@ public class ConversationService : IConversationService
         // Switching models mid-conversation (provider must accompany a model change).
         if (provider is not null) conv.Provider = provider.Value;
         if (!string.IsNullOrWhiteSpace(model)) conv.Model = model;
+        // Fallback routing: empty string clears it.
+        if (fallbackProvider is not null)
+            conv.FallbackProvider = fallbackProvider.Length == 0 ? null : fallbackProvider;
+        if (fallbackModel is not null)
+            conv.FallbackModel = fallbackModel.Length == 0 ? null : fallbackModel;
         conv.Touch();
         await _db.SaveChangesAsync(ct);
         return true;
@@ -106,5 +113,49 @@ public class ConversationService : IConversationService
         msg.TokensOut = tokensOut;
         msg.Error = error;
         await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Guest → account migration: imports on-device conversations (with their
+    /// message history) as server-side rows. Entries with an unusable provider
+    /// enum are skipped; caps guard against oversized payloads.
+    /// </summary>
+    public async Task<int> ImportAsync(Guid userId, IReadOnlyList<ImportConversationDto> conversations, CancellationToken ct = default)
+    {
+        var imported = 0;
+        foreach (var c in conversations.Take(200))
+        {
+            if (string.IsNullOrWhiteSpace(c.Model)) continue;
+            var conv = new Conversation
+            {
+                UserId = userId,
+                Title = string.IsNullOrWhiteSpace(c.Title) ? "Nova conversa" : c.Title,
+                Provider = c.Provider,
+                Model = c.Model,
+                Pinned = c.Pinned,
+                CreatedAt = c.Messages.FirstOrDefault()?.CreatedAt ?? DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            foreach (var m in (c.Messages ?? []).Take(1000))
+            {
+                if (string.IsNullOrWhiteSpace(m.Content) && m.Role != MessageRole.Assistant) continue;
+                conv.Messages.Add(new Message
+                {
+                    ConversationId = conv.Id,
+                    Role = m.Role,
+                    Content = m.Content,
+                    Model = m.Model,
+                    TokensIn = m.TokensIn,
+                    TokensOut = m.TokensOut,
+                    Cost = m.CostUsd,
+                    Error = m.Error,
+                    CreatedAt = m.CreatedAt ?? DateTimeOffset.UtcNow
+                });
+            }
+            _db.Conversations.Add(conv);
+            imported++;
+        }
+        await _db.SaveChangesAsync(ct);
+        return imported;
     }
 }

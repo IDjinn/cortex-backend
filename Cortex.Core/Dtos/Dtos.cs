@@ -27,7 +27,10 @@ public record UpdateConversationRequest(
     string? Title,
     bool? Pinned,
     ChatProviderKind? Provider = null,
-    string? Model = null);
+    string? Model = null,
+    /// <summary>Empty string clears the fallback.</summary>
+    string? FallbackProvider = null,
+    string? FallbackModel = null);
 
 public record ConversationResponse(
     Guid Id,
@@ -37,7 +40,9 @@ public record ConversationResponse(
     bool Pinned,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    int MessageCount);
+    int MessageCount,
+    string? FallbackProvider = null,
+    string? FallbackModel = null);
 
 public record ConversationDetailResponse(
     Guid Id,
@@ -47,7 +52,9 @@ public record ConversationDetailResponse(
     bool Pinned,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    List<MessageResponse> Messages);
+    List<MessageResponse> Messages,
+    string? FallbackProvider = null,
+    string? FallbackModel = null);
 
 public record MessageResponse(
     Guid Id,
@@ -57,7 +64,8 @@ public record MessageResponse(
     int? TokensIn,
     int? TokensOut,
     string? Error,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    decimal? CostUsd = null);
 
 public record ChatRequest(
     Guid ConversationId,
@@ -103,3 +111,35 @@ public record SaveProviderKeyRequest(string Key);
 public record ProviderKeyResponse(
     ChatProviderKind Provider,
     DateTimeOffset UpdatedAt);
+
+// ---- Usage & cost ----
+
+public record UsageResponse(
+    ChatProviderKind Provider,
+    int Requests,
+    int TokensIn,
+    int TokensOut,
+    decimal? CostUsd);
+
+// ---- Guest → account migration ----
+
+public record ImportConversationsRequest(List<ImportConversationDto> Conversations);
+
+public record ImportConversationDto(
+    string Title,
+    ChatProviderKind Provider,
+    string Model,
+    bool Pinned,
+    List<ImportMessageDto> Messages);
+
+public record ImportMessageDto(
+    MessageRole Role,
+    string Content,
+    string? Model,
+    int? TokensIn,
+    int? TokensOut,
+    string? Error,
+    DateTimeOffset? CreatedAt,
+    decimal? CostUsd = null);
+
+public record ImportResultResponse(int Imported);

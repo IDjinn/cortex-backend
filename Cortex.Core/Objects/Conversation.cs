@@ -11,6 +11,11 @@ public class Conversation
     public string Model { get; set; } = string.Empty;
     public bool Pinned { get; set; }
 
+    /// <summary>Manual routing fallback — tried when the primary provider fails
+    /// before emitting any token. Stored as ChatProviderKind string; null = disabled.</summary>
+    public string? FallbackProvider { get; set; }
+    public string? FallbackModel { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

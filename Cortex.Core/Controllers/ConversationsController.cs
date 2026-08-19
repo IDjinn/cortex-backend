@@ -37,7 +37,8 @@ public class ConversationsController : ControllerBase
             conv.Id, conv.Title, conv.Provider, conv.Model, conv.Pinned,
             conv.CreatedAt, conv.UpdatedAt,
             conv.Messages.Select(m => new MessageResponse(
-                m.Id, m.Role, m.Content, m.Model, m.TokensIn, m.TokensOut, m.Error, m.CreatedAt)).ToList()));
+                m.Id, m.Role, m.Content, m.Model, m.TokensIn, m.TokensOut, m.Error, m.CreatedAt, m.Cost)).ToList(),
+            conv.FallbackProvider, conv.FallbackModel));
     }
 
     [HttpPost]
@@ -47,10 +48,20 @@ public class ConversationsController : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = conv.Id }, ToResponse(conv));
     }
 
+    /// <summary>Guest → account migration: imports on-device conversations server-side.</summary>
+    [HttpPost("import")]
+    public async Task<IActionResult> Import([FromBody] ImportConversationsRequest req, CancellationToken ct)
+    {
+        if (req.Conversations is null || req.Conversations.Count == 0)
+            return BadRequest(new ErrorDetail("Nothing to import"));
+        var imported = await _svc.ImportAsync(_me.UserId, req.Conversations, ct);
+        return Ok(new ImportResultResponse(imported));
+    }
+
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateConversationRequest req, CancellationToken ct)
     {
-        var ok = await _svc.UpdateAsync(_me.UserId, id, req.Title, req.Pinned, req.Provider, req.Model, ct);
+        var ok = await _svc.UpdateAsync(_me.UserId, id, req.Title, req.Pinned, req.Provider, req.Model, req.FallbackProvider, req.FallbackModel, ct);
         return ok ? NoContent() : NotFound();
     }
 
@@ -62,5 +73,6 @@ public class ConversationsController : ControllerBase
     }
 
     private static ConversationResponse ToResponse(Conversation c) => new(
-        c.Id, c.Title, c.Provider, c.Model, c.Pinned, c.CreatedAt, c.UpdatedAt, c.Messages.Count);
+        c.Id, c.Title, c.Provider, c.Model, c.Pinned, c.CreatedAt, c.UpdatedAt, c.Messages.Count,
+        c.FallbackProvider, c.FallbackModel);
 }

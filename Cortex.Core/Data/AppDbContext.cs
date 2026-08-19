@@ -65,6 +65,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Title).HasMaxLength(200).IsRequired();
             e.Property(x => x.Provider).HasConversion<string>().HasMaxLength(32).IsRequired();
             e.Property(x => x.Model).HasMaxLength(128).IsRequired();
+            e.Property(x => x.FallbackProvider).HasMaxLength(32);
+            e.Property(x => x.FallbackModel).HasMaxLength(128);
             e.Property(x => x.CreatedAt).HasColumnType("timestamptz");
             e.Property(x => x.UpdatedAt).HasColumnType("timestamptz");
             e.HasOne(x => x.User)
@@ -81,6 +83,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Role).HasConversion<string>().HasMaxLength(16).IsRequired();
             e.Property(x => x.Content).IsRequired();
             e.Property(x => x.Model).HasMaxLength(128);
+            e.Property(x => x.Cost).HasPrecision(18, 6);
             e.Property(x => x.CreatedAt).HasColumnType("timestamptz");
             e.HasOne(x => x.Conversation)
                 .WithMany(c => c.Messages)
