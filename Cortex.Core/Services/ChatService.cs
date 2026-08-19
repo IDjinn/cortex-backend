@@ -38,6 +38,7 @@ public class ChatService : IChatService
     private readonly AppDbContext _db;
     private readonly IConversationService _conversations;
     private readonly IProviderFactory _providers;
+    private readonly IProviderKeyStore _keyStore;
     private readonly ProviderOptions _providerOptions;
     private readonly ChatOptions _chatOptions;
 
@@ -45,12 +46,14 @@ public class ChatService : IChatService
         AppDbContext db,
         IConversationService conversations,
         IProviderFactory providers,
+        IProviderKeyStore keyStore,
         IOptions<ProviderOptions> providerOptions,
         IOptions<ChatOptions> chatOptions)
     {
         _db = db;
         _conversations = conversations;
         _providers = providers;
+        _keyStore = keyStore;
         _providerOptions = providerOptions.Value;
         _chatOptions = chatOptions.Value;
     }
@@ -118,6 +121,14 @@ public class ChatService : IChatService
 
         var payload = new ChatRequestPayload(model, history);
         var provider = _providers.Get(conv.Provider);
+
+        // BYOK resolution: request-header key > user vault > server-configured key.
+        if (string.IsNullOrWhiteSpace(context?.ApiKey))
+        {
+            var vaultKey = await _keyStore.GetKeyAsync(userId, conv.Provider, ct);
+            if (!string.IsNullOrEmpty(vaultKey))
+                context = new ProviderCallContext(vaultKey, context?.BaseUrl);
+        }
 
         var buffer = new System.Text.StringBuilder();
         int? tokensIn = null;

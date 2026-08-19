@@ -93,3 +93,11 @@ public record ProviderResponse(
     bool ServerKeyConfigured);
 
 public record ErrorDetail(string Error, string? Detail = null);
+
+// ---- BYOK vault ----
+
+public record SaveProviderKeyRequest(string Key);
+
+public record ProviderKeyResponse(
+    ChatProviderKind Provider,
+    DateTimeOffset UpdatedAt);

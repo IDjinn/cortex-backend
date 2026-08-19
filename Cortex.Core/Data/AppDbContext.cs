@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ProviderKey> ProviderKeys => Set<ProviderKey>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
 
@@ -39,6 +40,20 @@ public class AppDbContext : DbContext
             e.Property(x => x.CreatedAt).HasColumnType("timestamptz");
             e.HasOne(x => x.User)
                 .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ProviderKey>(e =>
+        {
+            e.ToTable("provider_keys");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+            e.HasIndex(x => new { x.UserId, x.Provider }).IsUnique();
+            e.Property(x => x.CreatedAt).HasColumnType("timestamptz");
+            e.Property(x => x.UpdatedAt).HasColumnType("timestamptz");
+            e.HasOne(x => x.User)
+                .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

@@ -5,6 +5,7 @@ using Cortex.Core.Data;
 using Cortex.Core.Providers;
 using Cortex.Core.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -37,6 +38,14 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddHttpClient("oauth-google");
 builder.Services.AddHttpClient("oauth-github");
+
+// ---- BYOK vault (Data Protection; set DataProtection:KeyRingPath in production) ----
+var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+var dataProtection = builder.Services.AddDataProtection();
+if (!string.IsNullOrEmpty(keyRingPath))
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
+builder.Services.AddScoped<IProviderKeyStore, ProviderKeyService>();
 
 // ---- Application services ----
 builder.Services.AddMemoryCache();
