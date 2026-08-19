@@ -14,11 +14,13 @@ public class ConversationsController : ControllerBase
 {
     private readonly ICurrentUser _me;
     private readonly IConversationService _svc;
+    private readonly IMemoryService _memories;
 
-    public ConversationsController(ICurrentUser me, IConversationService svc)
+    public ConversationsController(ICurrentUser me, IConversationService svc, IMemoryService memories)
     {
         _me = me;
         _svc = svc;
+        _memories = memories;
     }
 
     [HttpGet]
@@ -52,10 +54,12 @@ public class ConversationsController : ControllerBase
     [HttpPost("import")]
     public async Task<IActionResult> Import([FromBody] ImportConversationsRequest req, CancellationToken ct)
     {
-        if (req.Conversations is null || req.Conversations.Count == 0)
+        if ((req.Conversations is null || req.Conversations.Count == 0)
+            && (req.Memories is null || req.Memories.Count == 0))
             return BadRequest(new ErrorDetail("Nothing to import"));
-        var imported = await _svc.ImportAsync(_me.UserId, req.Conversations, ct);
-        return Ok(new ImportResultResponse(imported));
+        var imported = await _svc.ImportAsync(_me.UserId, req.Conversations ?? [], ct);
+        var importedMemories = await _memories.ImportAsync(_me.UserId, req.Memories ?? [], ct);
+        return Ok(new ImportResultResponse(imported + importedMemories));
     }
 
     [HttpPatch("{id:guid}")]

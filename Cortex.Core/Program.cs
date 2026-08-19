@@ -50,6 +50,7 @@ builder.Services.AddScoped<IProviderKeyStore, ProviderKeyService>();
 // ---- Application services ----
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IConversationService, ConversationService>();
+builder.Services.AddScoped<IMemoryService, MemoryService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddSingleton<IModelService, ModelService>();
 

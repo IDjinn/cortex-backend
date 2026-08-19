@@ -52,7 +52,20 @@ public class ModelsController : ControllerBase
             ApiKey: providerKey,
             BaseUrl: baseUrl);
         var defaultModel = _providers.For(p).DefaultModel;
-        var list = await _models.ListAsync(p, context, refresh, ct);
+
+        // Local endpoints (Ollama, LM Studio) are routinely offline — an unreachable
+        // or failing provider must degrade to a structured error, not an unhandled 500.
+        IReadOnlyList<ModelInfo> list;
+        try
+        {
+            list = await _models.ListAsync(p, context, refresh, ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway,
+                new ErrorDetail("Provider unreachable", $"Failed to list models from {p.ToString().ToLowerInvariant()}: {ex.Message}"));
+        }
+
         return Ok(list.Select(m => new ModelResponse(
             m.Id, m.Name, m.Description, m.ContextLength, m.PromptPrice, m.CompletionPrice,
             IsDefault(m.Id, defaultModel),

@@ -123,7 +123,7 @@ public record UsageResponse(
 
 // ---- Guest → account migration ----
 
-public record ImportConversationsRequest(List<ImportConversationDto> Conversations);
+public record ImportConversationsRequest(List<ImportConversationDto> Conversations, List<ImportMemoryDto>? Memories = null);
 
 public record ImportConversationDto(
     string Title,
@@ -143,3 +143,23 @@ public record ImportMessageDto(
     decimal? CostUsd = null);
 
 public record ImportResultResponse(int Imported);
+
+// ---- Memories ----
+
+public record CreateMemoryRequest(
+    MemoryScope Scope,
+    Guid? ConversationId,
+    string Content);
+
+public record UpdateMemoryRequest(string Content);
+
+public record MemoryResponse(
+    Guid Id,
+    MemoryScope Scope,
+    Guid? ConversationId,
+    MemorySource Source,
+    string Content,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public record ImportMemoryDto(string Content);

@@ -32,6 +32,8 @@ public abstract record ChatTurnEvent
     public sealed record Notice(string Message) : ChatTurnEvent;
     public sealed record Completed(int? TokensIn, int? TokensOut, string Provider, string Model, decimal? CostUsd) : ChatTurnEvent;
     public sealed record Failed(string Message) : ChatTurnEvent;
+    /// <summary>Post-turn automatic extraction: candidate memories the user must confirm.</summary>
+    public sealed record MemoryProposals(IReadOnlyList<string> Proposals) : ChatTurnEvent;
 }
 
 public class ChatService : IChatService
@@ -41,6 +43,7 @@ public class ChatService : IChatService
     private readonly IProviderFactory _providers;
     private readonly IProviderKeyStore _keyStore;
     private readonly IModelService _models;
+    private readonly IMemoryService _memories;
     private readonly ProviderOptions _providerOptions;
     private readonly ChatOptions _chatOptions;
 
@@ -50,6 +53,7 @@ public class ChatService : IChatService
         IProviderFactory providers,
         IProviderKeyStore keyStore,
         IModelService models,
+        IMemoryService memories,
         IOptions<ProviderOptions> providerOptions,
         IOptions<ChatOptions> chatOptions)
     {
@@ -58,6 +62,7 @@ public class ChatService : IChatService
         _providers = providers;
         _keyStore = keyStore;
         _models = models;
+        _memories = memories;
         _providerOptions = providerOptions.Value;
         _chatOptions = chatOptions.Value;
     }
@@ -122,6 +127,16 @@ public class ChatService : IChatService
         var instructions = ChatInstructions.Build(locale, _chatOptions.SystemPromptTemplate);
         if (!string.IsNullOrWhiteSpace(instructions))
             history.Insert(0, new ChatMessagePayload(MessageRole.System, instructions));
+
+        // Memory injection (relevance budget: top-K, max chars) — second system
+        // payload, also outside the history window.
+        var memories = await _memories.RelevantAsync(userId, conv.Id, _chatOptions.MemoryTopK, _chatOptions.MemoryMaxPromptChars, ct);
+        if (memories.Count > 0)
+        {
+            var block = "Known memories about the user (background context — do not mention explicitly unless relevant):\n"
+                + string.Join("\n", memories.Select(m => $"- {m.Content}"));
+            history.Insert(1, new ChatMessagePayload(MessageRole.System, block));
+        }
 
         // 4. stream — primary first, then the manual fallback when the primary
         // fails before emitting any token (mid-stream failures surface as errors).
@@ -212,6 +227,71 @@ public class ChatService : IChatService
         }
 
         yield return new ChatTurnEvent.Completed(tokensIn, tokensOut, servedProvider.ToString(), servedModel, cost);
+
+        // 6. automatic memory extraction — one extra call per turn, only on a
+        // successful turn of an already-established conversation (>= 4 messages).
+        // Proposals are surfaced to the client for user confirmation.
+        if (error is null && conv.Messages.Count >= 4)
+        {
+            var proposals = await ExtractMemoryProposalsAsync(userId, conv.Id, servedProvider, servedModel, history, ct);
+            if (proposals.Count > 0)
+                yield return new ChatTurnEvent.MemoryProposals(proposals);
+        }
+    }
+
+    /// <summary>Asks the conversation's model to propose durable facts from the recent exchange.</summary>
+    private async Task<IReadOnlyList<string>> ExtractMemoryProposalsAsync(
+        Guid userId, Guid conversationId, ChatProviderKind provider, string model, List<ChatMessagePayload> history, CancellationToken ct)
+    {
+        try
+        {
+            var key = await _keyStore.GetKeyAsync(userId, provider, ct);
+            var context = new ProviderCallContext(key);
+
+            const string prompt = """
+                Analyze the conversation above and extract at most 3 durable facts worth remembering about the user for future conversations (preferences, ongoing projects, important constraints).
+                Respond with ONLY a JSON array of short strings (max 140 chars each), e.g. ["prefers TypeScript", "building a mobile app"].
+                If there is nothing worth remembering, respond with [].
+                """;
+            var payload = new List<ChatMessagePayload>(history.Count + 1);
+            payload.AddRange(history.TakeLast(10));
+            payload.Add(new ChatMessagePayload(MessageRole.User, prompt));
+
+            var sb = new System.Text.StringBuilder();
+            await foreach (var chunk in _providers.Get(provider).StreamChatAsync(new ChatRequestPayload(model, payload), context, ct))
+            {
+                if (chunk is ChatChunk.Token t) sb.Append(t.Text);
+                else if (chunk is ChatChunk.Error) return Array.Empty<string>();
+            }
+            return ParseProposals(sb.ToString());
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static IReadOnlyList<string> ParseProposals(string raw)
+    {
+        var text = raw.Trim();
+        // tolerate markdown fences around the JSON
+        var start = text.IndexOf('[');
+        var end = text.LastIndexOf(']');
+        if (start < 0 || end <= start) return Array.Empty<string>();
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(text[start..(end + 1)]);
+            return doc.RootElement.EnumerateArray()
+                .Select(e => e.GetString())
+                .Where(s => !string.IsNullOrWhiteSpace(s) && s.Length <= 400)
+                .Select(s => s!.Trim())
+                .Take(3)
+                .ToList();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
     }
 
     private static bool TryParseFallback(Conversation conv, out (ChatProviderKind Provider, string Model) fallback)

@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ProviderKey> ProviderKeys => Set<ProviderKey>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<Memory> Memories => Set<Memory>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -90,6 +91,27 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.ConversationId, x.CreatedAt });
+        });
+
+        b.Entity<Memory>(e =>
+        {
+            e.ToTable("memories");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Scope).HasConversion<string>().HasMaxLength(32).IsRequired();
+            e.Property(x => x.Source).HasConversion<string>().HasMaxLength(16).IsRequired();
+            e.Property(x => x.Content).IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnType("timestamptz");
+            e.Property(x => x.UpdatedAt).HasColumnType("timestamptz");
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Conversation)
+                .WithMany()
+                .HasForeignKey(x => x.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.UserId, x.Scope });
+            e.HasIndex(x => new { x.UserId, x.ConversationId });
         });
     }
 }

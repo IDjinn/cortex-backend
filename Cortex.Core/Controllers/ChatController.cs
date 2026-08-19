@@ -87,6 +87,9 @@ public class ChatController : ControllerBase
                     case ChatTurnEvent.Failed f:
                         await SendEvent("error", new { message = f.Message });
                         break;
+                    case ChatTurnEvent.MemoryProposals mp:
+                        await SendEvent("memoryProposal", new { proposals = mp.Proposals });
+                        break;
                 }
             }
         }

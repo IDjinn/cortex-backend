@@ -78,4 +78,10 @@ public class CorsOptions
 public class ChatOptions
 {
     public string? SystemPromptTemplate { get; set; }
+
+    /// <summary>Max memories injected into a prompt (relevance budget, top-K).</summary>
+    public int MemoryTopK { get; set; } = 12;
+
+    /// <summary>Hard cap on total memory characters injected per turn.</summary>
+    public int MemoryMaxPromptChars { get; set; } = 2000;
 }

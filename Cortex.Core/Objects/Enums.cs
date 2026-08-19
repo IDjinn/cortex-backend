@@ -14,6 +14,19 @@ public enum MessageRole
     Tool
 }
 
+public enum MemoryScope
+{
+    Global,
+    Project,
+    Conversation
+}
+
+public enum MemorySource
+{
+    Manual,
+    Extracted
+}
+
 public enum ChatProviderKind
 {
     OpenRouter,
