@@ -19,6 +19,7 @@ public interface IChatService
         Guid conversationId,
         string userContent,
         string? locale = null,
+        ProviderCallContext? context = null,
         CancellationToken ct = default);
 }
 
@@ -27,6 +28,7 @@ public abstract record ChatTurnEvent
     public sealed record UserMessageSaved(Guid MessageId) : ChatTurnEvent;
     public sealed record AssistantMessageCreated(Guid MessageId) : ChatTurnEvent;
     public sealed record Token(string Text) : ChatTurnEvent;
+    public sealed record ToolCallChunk(string Id, string Name, string ArgumentsJson) : ChatTurnEvent;
     public sealed record Completed(int? TokensIn, int? TokensOut) : ChatTurnEvent;
     public sealed record Failed(string Message) : ChatTurnEvent;
 }
@@ -58,6 +60,7 @@ public class ChatService : IChatService
         Guid conversationId,
         string userContent,
         string? locale = null,
+        ProviderCallContext? context = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         Conversation? conv;
@@ -122,13 +125,16 @@ public class ChatService : IChatService
         string? error = null;
 
         // 4. stream
-        await foreach (var chunk in provider.StreamChatAsync(payload, ct))
+        await foreach (var chunk in provider.StreamChatAsync(payload, context, ct))
         {
             switch (chunk)
             {
                 case ChatChunk.Token t:
                     buffer.Append(t.Text);
                     yield return new ChatTurnEvent.Token(t.Text);
+                    break;
+                case ChatChunk.ToolCall tc:
+                    yield return new ChatTurnEvent.ToolCallChunk(tc.Id, tc.Name, tc.ArgumentsJson);
                     break;
                 case ChatChunk.Usage u:
                     tokensIn = u.PromptTokens;

@@ -48,9 +48,21 @@ builder.Services.AddSingleton<IModelService, ModelService>();
 builder.Services.AddHttpClient(OpenRouterProvider.HttpClientName);
 builder.Services.AddHttpClient(OllamaProvider.HttpClientName);
 builder.Services.AddHttpClient(LmStudioProvider.HttpClientName);
+builder.Services.AddHttpClient(OpenAiProvider.HttpClientName);
+builder.Services.AddHttpClient(AnthropicProvider.HttpClientName);
+builder.Services.AddHttpClient(GeminiProvider.HttpClientName);
+builder.Services.AddHttpClient(XaiProvider.HttpClientName);
+builder.Services.AddHttpClient(MistralProvider.HttpClientName);
+builder.Services.AddHttpClient(DeepSeekProvider.HttpClientName);
 builder.Services.AddSingleton<OpenRouterProvider>();
 builder.Services.AddSingleton<OllamaProvider>();
 builder.Services.AddSingleton<LmStudioProvider>();
+builder.Services.AddSingleton<OpenAiProvider>();
+builder.Services.AddSingleton<AnthropicProvider>();
+builder.Services.AddSingleton<GeminiProvider>();
+builder.Services.AddSingleton<XaiProvider>();
+builder.Services.AddSingleton<MistralProvider>();
+builder.Services.AddSingleton<DeepSeekProvider>();
 builder.Services.AddSingleton<IProviderFactory, ProviderFactory>();
 
 // ---- JWT auth ----

@@ -11,20 +11,31 @@ public sealed class OllamaProvider : IProvider
 {
     public const string HttpClientName = "ollama";
 
-    private readonly HttpClient _http;
+    private readonly IHttpClientFactory _httpFactory;
+    private readonly ProviderOptions.ProviderEndpoint _endpoint;
 
     public OllamaProvider(IHttpClientFactory factory, IOptions<ProviderOptions> opts)
     {
-        _http = factory.CreateClient(HttpClientName);
-        _http.BaseAddress = new Uri(opts.Value.Ollama.BaseUrl.TrimEnd('/') + "/");
-        _http.Timeout = TimeSpan.FromMinutes(10);
+        _httpFactory = factory;
+        _endpoint = opts.Value.Ollama;
     }
 
     public ChatProviderKind Kind => ChatProviderKind.Ollama;
 
-    public async Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken ct = default)
+    private HttpClient CreateClient(ProviderCallContext? context)
     {
-        var res = await _http.GetAsync("api/tags", ct);
+        var http = _httpFactory.CreateClient(HttpClientName);
+        var baseUrl = !string.IsNullOrWhiteSpace(context?.BaseUrl) ? context.BaseUrl : _endpoint.BaseUrl;
+        http.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+        // Local inference can be slow on large prompts.
+        http.Timeout = TimeSpan.FromMinutes(10);
+        return http;
+    }
+
+    public async Task<IReadOnlyList<ModelInfo>> ListModelsAsync(ProviderCallContext? context = null, CancellationToken ct = default)
+    {
+        using var http = CreateClient(context);
+        var res = await http.GetAsync("api/tags", ct);
         res.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
         var list = new List<ModelInfo>();
@@ -45,8 +56,12 @@ public sealed class OllamaProvider : IProvider
         return list;
     }
 
-    public async IAsyncEnumerable<ChatChunk> StreamChatAsync(ChatRequestPayload payload, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<ChatChunk> StreamChatAsync(
+        ChatRequestPayload payload,
+        ProviderCallContext? context = null,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
+        using var http = CreateClient(context);
         var body = new
         {
             model = payload.Model,
@@ -63,7 +78,7 @@ public sealed class OllamaProvider : IProvider
         {
             Content = JsonContent.Create(body)
         };
-        using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!res.IsSuccessStatusCode)
         {
             var text = await res.Content.ReadAsStringAsync(ct);

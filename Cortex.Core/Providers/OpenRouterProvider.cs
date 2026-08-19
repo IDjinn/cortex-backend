@@ -11,9 +11,13 @@ public sealed class OpenRouterProvider : OpenAiCompatibleProvider
     public OpenRouterProvider(IHttpClientFactory factory, IOptions<ProviderOptions> opts)
         : base(factory, HttpClientName, opts.Value.OpenRouter, "OpenRouter")
     {
-        Http.DefaultRequestHeaders.Add("HTTP-Referer", "https://cortex.app");
-        Http.DefaultRequestHeaders.Add("X-Title", "Cortex");
     }
 
     public override ChatProviderKind Kind => ChatProviderKind.OpenRouter;
+
+    protected override void OnClientCreated(HttpClient http)
+    {
+        http.DefaultRequestHeaders.Add("HTTP-Referer", "https://cortex.app");
+        http.DefaultRequestHeaders.Add("X-Title", "Cortex");
+    }
 }

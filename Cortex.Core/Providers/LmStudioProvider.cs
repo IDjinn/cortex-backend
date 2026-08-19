@@ -11,20 +11,29 @@ public sealed class LmStudioProvider : OpenAiCompatibleProvider
 
     public LmStudioProvider(IHttpClientFactory factory, IOptions<ProviderOptions> opts)
         : base(factory, HttpClientName, opts.Value.LmStudio, "LM Studio")
-        // Local inference can be slow on large prompts.
-        => Http.Timeout = TimeSpan.FromMinutes(10);
+    {
+    }
 
     public override ChatProviderKind Kind => ChatProviderKind.LmStudio;
+
+    protected override void OnClientCreated(HttpClient http)
+        // Local inference can be slow on large prompts.
+        => http.Timeout = TimeSpan.FromMinutes(10);
 
     /// <summary>
     /// Uses LM Studio's native listing (host-root "/api/v1/models", i.e. outside the
     /// OpenAI /v1 base) so non-chat models (embedders) can be filtered out by type.
+    /// Falls back to the OpenAI-style "models" listing for other OpenAI-compatible
+    /// local servers (e.g. llama.cpp's llama-server).
     /// </summary>
-    public override async Task<IReadOnlyList<ModelInfo>> ListModelsAsync(CancellationToken ct = default)
+    public override async Task<IReadOnlyList<ModelInfo>> ListModelsAsync(ProviderCallContext? context = null, CancellationToken ct = default)
     {
-        var url = new Uri(Http.BaseAddress!, "/api/v1/models");
-        var res = await Http.GetAsync(url, ct);
-        res.EnsureSuccessStatusCode();
+        using var http = CreateClient(context);
+        var url = new Uri(http.BaseAddress!, "/api/v1/models");
+        var res = await http.GetAsync(url, ct);
+        if (!res.IsSuccessStatusCode)
+            return await base.ListModelsAsync(context, ct);
+
         using var doc = await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
         var list = new List<ModelInfo>();
         foreach (var m in doc.RootElement.GetProperty("models").EnumerateArray())

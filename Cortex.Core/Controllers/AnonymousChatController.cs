@@ -6,6 +6,7 @@ using Cortex.Core.Providers;
 using Cortex.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace Cortex.Core.Controllers;
@@ -15,26 +16,34 @@ namespace Cortex.Core.Controllers;
 [Route("api/chat/anonymous")]
 public class AnonymousChatController : ControllerBase
 {
+    private const string ProviderKeyHeader = "X-Provider-Key";
+    private const int RequestsPerMinute = 30;
+
     private readonly IProviderFactory _factory;
     private readonly ProviderOptions _providers;
     private readonly ChatOptions _chat;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<AnonymousChatController> _log;
 
     public AnonymousChatController(
         IProviderFactory factory,
         IOptions<ProviderOptions> providers,
         IOptions<ChatOptions> chat,
+        IMemoryCache cache,
         ILogger<AnonymousChatController> log)
     {
         _factory = factory;
         _providers = providers.Value;
         _chat = chat.Value;
+        _cache = cache;
         _log = log;
     }
 
     /// <summary>
     /// Streams completion tokens as SSE without requiring authentication.
-    /// Conversations are not persisted — caller is responsible for keeping history.
+    /// Conversations are not persisted — caller keeps the history. Local providers
+    /// are always allowed; remote (cloud) providers require the caller's own API
+    /// key, proxied per request via header and never stored.
     /// </summary>
     [HttpPost]
     public async Task Stream([FromBody] AnonymousChatRequest req, CancellationToken ct)
@@ -46,13 +55,30 @@ public class AnonymousChatController : ControllerBase
             return;
         }
 
-        // Guest (anonymous) chat is restricted to local models.
-        // Cloud providers (e.g. OpenRouter) require an authenticated account.
-        if (req.Provider is not (ChatProviderKind.Ollama or ChatProviderKind.LmStudio))
+        var providerKey = Request.Headers.TryGetValue(ProviderKeyHeader, out var key) ? key.ToString() : null;
+        if (string.IsNullOrWhiteSpace(providerKey)) providerKey = null;
+
+        var isLocal = req.Provider is (ChatProviderKind.Ollama or ChatProviderKind.LmStudio);
+        if (!isLocal && providerKey is null)
         {
             Response.StatusCode = StatusCodes.Status403Forbidden;
             await Response.WriteAsJsonAsync(
-                new ErrorDetail("Guest chat is restricted to local models (Ollama, LM Studio)", "Sign in to use cloud models."), ct);
+                new ErrorDetail("Guest chat needs a provider API key for cloud models", "Send your own key via the X-Provider-Key header, or use a local provider."), ct);
+            return;
+        }
+
+        // Custom base URLs are only meaningful for local endpoints.
+        if (!string.IsNullOrWhiteSpace(req.BaseUrl) && !isLocal)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsJsonAsync(new ErrorDetail("baseUrl is only allowed for local providers"), ct);
+            return;
+        }
+
+        if (IsRateLimited())
+        {
+            Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await Response.WriteAsJsonAsync(new ErrorDetail("Too many anonymous requests", "Try again in a minute."), ct);
             return;
         }
 
@@ -90,20 +116,20 @@ public class AnonymousChatController : ControllerBase
         var instructions = ChatInstructions.Build(req.Locale, _chat.SystemPromptTemplate);
         if (!string.IsNullOrWhiteSpace(instructions))
             messages.Insert(0, new ChatMessagePayload(MessageRole.System, instructions));
-        var payload = new ChatRequestPayload(
-            model,
-            messages,
-            req.Temperature,
-            req.MaxTokens);
+        var payload = new ChatRequestPayload(model, messages, req.Temperature, req.MaxTokens);
+        var context = new ProviderCallContext(providerKey, req.BaseUrl);
 
         try
         {
-            await foreach (var chunk in provider.StreamChatAsync(payload, ct))
+            await foreach (var chunk in provider.StreamChatAsync(payload, context, ct))
             {
                 switch (chunk)
                 {
                     case ChatChunk.Token t:
                         await SendEvent("token", new { value = t.Text });
+                        break;
+                    case ChatChunk.ToolCall tc:
+                        await SendEvent("toolCall", new { id = tc.Id, name = tc.Name, arguments = tc.ArgumentsJson });
                         break;
                     case ChatChunk.Usage u:
                         await SendEvent("usage", new { tokensIn = u.PromptTokens, tokensOut = u.CompletionTokens });
@@ -128,5 +154,16 @@ public class AnonymousChatController : ControllerBase
             _log.LogError(ex, "Anonymous chat failed");
             await SendEvent("error", new { message = ex.Message });
         }
+    }
+
+    /// <summary>Fixed-window per-IP limiter — the anonymous endpoint proxies third-party APIs.</summary>
+    private bool IsRateLimited()
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var window = DateTimeOffset.UtcNow.Ticks / TimeSpan.TicksPerMinute;
+        var key = $"anon-rl:{ip}:{window}";
+        _cache.TryGetValue(key, out int count);
+        _cache.Set(key, count + 1, TimeSpan.FromSeconds(70));
+        return count + 1 > RequestsPerMinute;
     }
 }

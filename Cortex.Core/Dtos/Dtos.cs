@@ -68,11 +68,10 @@ public record AnonymousChatRequest(
     List<AnonymousChatMessage> Messages,
     double? Temperature = null,
     int? MaxTokens = null,
-    string? Locale = null);
+    string? Locale = null,
+    string? BaseUrl = null);
 
 public record AnonymousChatMessage(MessageRole Role, string Content);
-
-public record AnonymousChatResponse(string Reply, int? TokensIn, int? TokensOut);
 
 public record ModelResponse(
     string Id,
@@ -81,6 +80,16 @@ public record ModelResponse(
     int? ContextLength,
     decimal? PromptPrice,
     decimal? CompletionPrice,
-    bool IsDefault = false);
+    bool IsDefault = false,
+    bool? SupportsTools = null,
+    bool? SupportsVision = null);
+
+/// <summary>Provider catalog entry: availability and key requirements for the picker.</summary>
+public record ProviderResponse(
+    ChatProviderKind Kind,
+    string Name,
+    bool IsLocal,
+    bool RequiresKey,
+    bool ServerKeyConfigured);
 
 public record ErrorDetail(string Error, string? Detail = null);

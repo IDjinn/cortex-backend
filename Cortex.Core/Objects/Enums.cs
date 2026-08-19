@@ -10,12 +10,19 @@ public enum MessageRole
 {
     System,
     User,
-    Assistant
+    Assistant,
+    Tool
 }
 
 public enum ChatProviderKind
 {
     OpenRouter,
     Ollama,
-    LmStudio
+    LmStudio,
+    OpenAI,
+    Anthropic,
+    Gemini,
+    Xai,
+    Mistral,
+    DeepSeek
 }

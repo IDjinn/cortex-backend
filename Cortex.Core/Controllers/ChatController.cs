@@ -23,9 +23,14 @@ public class ChatController : ControllerBase
 
     /// <summary>
     /// Sends a user message and streams completion tokens as Server-Sent Events.
+    /// An optional X-Provider-Key header proxies the caller's own API key for the
+    /// turn (BYOK) — it takes precedence over server/user vault keys.
     /// </summary>
     [HttpPost]
-    public async Task Stream([FromBody] ChatRequest req, CancellationToken ct)
+    public async Task Stream(
+        [FromBody] ChatRequest req,
+        [FromHeader(Name = "X-Provider-Key")] string? providerKey,
+        CancellationToken ct)
     {
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -44,9 +49,13 @@ public class ChatController : ControllerBase
             await writer.FlushAsync(ct);
         }
 
+        var context = string.IsNullOrWhiteSpace(providerKey)
+            ? null
+            : new Providers.ProviderCallContext(ApiKey: providerKey);
+
         try
         {
-            await foreach (var ev in _chat.StreamTurnAsync(_me.UserId, req.ConversationId, req.Content, req.Locale, ct))
+            await foreach (var ev in _chat.StreamTurnAsync(_me.UserId, req.ConversationId, req.Content, req.Locale, context, ct))
             {
                 switch (ev)
                 {
@@ -58,6 +67,9 @@ public class ChatController : ControllerBase
                         break;
                     case ChatTurnEvent.Token t:
                         await SendEvent("token", new { value = t.Text });
+                        break;
+                    case ChatTurnEvent.ToolCallChunk tc:
+                        await SendEvent("toolCall", new { id = tc.Id, name = tc.Name, arguments = tc.ArgumentsJson });
                         break;
                     case ChatTurnEvent.Completed c:
                         await SendEvent("done", new { tokensIn = c.TokensIn, tokensOut = c.TokensOut });

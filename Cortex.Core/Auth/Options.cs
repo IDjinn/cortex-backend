@@ -31,12 +31,24 @@ public class ProviderOptions
     public ProviderEndpoint OpenRouter { get; set; } = new();
     public ProviderEndpoint Ollama { get; set; } = new();
     public ProviderEndpoint LmStudio { get; set; } = new();
+    public ProviderEndpoint OpenAI { get; set; } = new();
+    public ProviderEndpoint Anthropic { get; set; } = new();
+    public ProviderEndpoint Gemini { get; set; } = new();
+    public ProviderEndpoint Xai { get; set; } = new();
+    public ProviderEndpoint Mistral { get; set; } = new();
+    public ProviderEndpoint DeepSeek { get; set; } = new();
 
     public ProviderEndpoint For(ChatProviderKind kind) => kind switch
     {
         ChatProviderKind.OpenRouter => OpenRouter,
         ChatProviderKind.Ollama => Ollama,
         ChatProviderKind.LmStudio => LmStudio,
+        ChatProviderKind.OpenAI => OpenAI,
+        ChatProviderKind.Anthropic => Anthropic,
+        ChatProviderKind.Gemini => Gemini,
+        ChatProviderKind.Xai => Xai,
+        ChatProviderKind.Mistral => Mistral,
+        ChatProviderKind.DeepSeek => DeepSeek,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
@@ -44,6 +56,10 @@ public class ProviderOptions
     {
         public string BaseUrl { get; set; } = string.Empty;
         public string? ApiKey { get; set; }
+
+        /// <summary>True when ApiKey holds a real secret (not the user-secrets placeholder).</summary>
+        public bool KeyConfigured =>
+            !string.IsNullOrEmpty(ApiKey) && !ApiKey!.StartsWith("REPLACE_", StringComparison.Ordinal);
 
         /// <summary>Fallback when a conversation/request carries no model.
         /// Matched against model ids ignoring case, with ":latest" implied
