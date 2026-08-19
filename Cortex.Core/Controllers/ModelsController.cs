@@ -1,8 +1,10 @@
+using Cortex.Core.Auth;
 using Cortex.Core.Dtos;
 using Cortex.Core.Objects;
 using Cortex.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Cortex.Core.Controllers;
 
@@ -12,8 +14,13 @@ namespace Cortex.Core.Controllers;
 public class ModelsController : ControllerBase
 {
     private readonly IModelService _models;
+    private readonly ProviderOptions _providers;
 
-    public ModelsController(IModelService models) => _models = models;
+    public ModelsController(IModelService models, IOptions<ProviderOptions> providers)
+    {
+        _models = models;
+        _providers = providers.Value;
+    }
 
     [HttpGet]
     public async Task<IActionResult> List(
@@ -24,8 +31,15 @@ public class ModelsController : ControllerBase
         if (!Enum.TryParse<ChatProviderKind>(provider, ignoreCase: true, out var p))
             return BadRequest(new ErrorDetail("Invalid provider", "Use 'openrouter' or 'ollama'"));
 
+        var defaultModel = _providers.For(p).DefaultModel;
         var list = await _models.ListAsync(p, refresh, ct);
         return Ok(list.Select(m => new ModelResponse(
-            m.Id, m.Name, m.Description, m.ContextLength, m.PromptPrice, m.CompletionPrice)));
+            m.Id, m.Name, m.Description, m.ContextLength, m.PromptPrice, m.CompletionPrice,
+            IsDefault(m.Id, defaultModel))));
     }
+
+    private static bool IsDefault(string id, string? defaultModel) =>
+        defaultModel is not null
+        && (id.Equals(defaultModel, StringComparison.OrdinalIgnoreCase)
+            || id.Equals(defaultModel + ":latest", StringComparison.OrdinalIgnoreCase));
 }

@@ -1,9 +1,12 @@
 using System.Text.Json;
+using Cortex.Core.Auth;
 using Cortex.Core.Dtos;
 using Cortex.Core.Objects;
 using Cortex.Core.Providers;
+using Cortex.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Cortex.Core.Controllers;
 
@@ -13,11 +16,19 @@ namespace Cortex.Core.Controllers;
 public class AnonymousChatController : ControllerBase
 {
     private readonly IProviderFactory _factory;
+    private readonly ProviderOptions _providers;
+    private readonly ChatOptions _chat;
     private readonly ILogger<AnonymousChatController> _log;
 
-    public AnonymousChatController(IProviderFactory factory, ILogger<AnonymousChatController> log)
+    public AnonymousChatController(
+        IProviderFactory factory,
+        IOptions<ProviderOptions> providers,
+        IOptions<ChatOptions> chat,
+        ILogger<AnonymousChatController> log)
     {
         _factory = factory;
+        _providers = providers.Value;
+        _chat = chat.Value;
         _log = log;
     }
 
@@ -35,21 +46,26 @@ public class AnonymousChatController : ControllerBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(req.Model))
-        {
-            Response.StatusCode = StatusCodes.Status400BadRequest;
-            await Response.WriteAsJsonAsync(new ErrorDetail("Model is required"), ct);
-            return;
-        }
-
-        // Guest (anonymous) chat is restricted to local Ollama models.
+        // Guest (anonymous) chat is restricted to local models.
         // Cloud providers (e.g. OpenRouter) require an authenticated account.
-        if (req.Provider != ChatProviderKind.Ollama)
+        if (req.Provider is not (ChatProviderKind.Ollama or ChatProviderKind.LmStudio))
         {
             Response.StatusCode = StatusCodes.Status403Forbidden;
             await Response.WriteAsJsonAsync(
-                new ErrorDetail("Guest chat is restricted to Ollama", "Sign in to use cloud models."), ct);
+                new ErrorDetail("Guest chat is restricted to local models (Ollama, LM Studio)", "Sign in to use cloud models."), ct);
             return;
+        }
+
+        var model = req.Model;
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            model = _providers.For(req.Provider).DefaultModel;
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                Response.StatusCode = StatusCodes.Status400BadRequest;
+                await Response.WriteAsJsonAsync(new ErrorDetail("Model is required"), ct);
+                return;
+            }
         }
 
         Response.ContentType = "text/event-stream";
@@ -58,7 +74,8 @@ public class AnonymousChatController : ControllerBase
         Response.Headers["X-Accel-Buffering"] = "no";
 
         await using var writer = new StreamWriter(Response.Body);
-        writer.AutoFlush = true;
+        // No AutoFlush: its setter Flush()es synchronously, which Kestrel
+        // (AllowSynchronousIO=false) rejects. SendEvent FlushAsync()s per event.
 
         async Task SendEvent(string type, object? data)
         {
@@ -69,9 +86,13 @@ public class AnonymousChatController : ControllerBase
         }
 
         var provider = _factory.Get(req.Provider);
+        var messages = req.Messages.Select(m => new ChatMessagePayload(m.Role, m.Content)).ToList();
+        var instructions = ChatInstructions.Build(req.Locale, _chat.SystemPromptTemplate);
+        if (!string.IsNullOrWhiteSpace(instructions))
+            messages.Insert(0, new ChatMessagePayload(MessageRole.System, instructions));
         var payload = new ChatRequestPayload(
-            req.Model,
-            req.Messages.Select(m => new ChatMessagePayload(m.Role, m.Content)).ToList(),
+            model,
+            messages,
             req.Temperature,
             req.MaxTokens);
 

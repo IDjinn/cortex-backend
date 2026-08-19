@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
+using Cortex.Core.Auth;
 using Cortex.Core.Data;
 using Cortex.Core.Objects;
 using Cortex.Core.Providers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Cortex.Core.Services;
 
@@ -16,6 +18,7 @@ public interface IChatService
         Guid userId,
         Guid conversationId,
         string userContent,
+        string? locale = null,
         CancellationToken ct = default);
 }
 
@@ -33,18 +36,28 @@ public class ChatService : IChatService
     private readonly AppDbContext _db;
     private readonly IConversationService _conversations;
     private readonly IProviderFactory _providers;
+    private readonly ProviderOptions _providerOptions;
+    private readonly ChatOptions _chatOptions;
 
-    public ChatService(AppDbContext db, IConversationService conversations, IProviderFactory providers)
+    public ChatService(
+        AppDbContext db,
+        IConversationService conversations,
+        IProviderFactory providers,
+        IOptions<ProviderOptions> providerOptions,
+        IOptions<ChatOptions> chatOptions)
     {
         _db = db;
         _conversations = conversations;
         _providers = providers;
+        _providerOptions = providerOptions.Value;
+        _chatOptions = chatOptions.Value;
     }
 
     public async IAsyncEnumerable<ChatTurnEvent> StreamTurnAsync(
         Guid userId,
         Guid conversationId,
         string userContent,
+        string? locale = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         Conversation? conv;
@@ -73,12 +86,17 @@ public class ChatService : IChatService
             yield break;
         }
 
+        // Conversations created before a default was configured may carry an empty model.
+        var model = string.IsNullOrWhiteSpace(conv.Model)
+            ? _providerOptions.For(conv.Provider).DefaultModel ?? conv.Model
+            : conv.Model;
+
         // 1. persist user message
         var userMsg = await _conversations.AppendMessageAsync(conv.Id, MessageRole.User, userContent, null, ct);
         yield return new ChatTurnEvent.UserMessageSaved(userMsg.Id);
 
         // 2. create empty assistant message placeholder
-        var assistantMsg = await _conversations.AppendMessageAsync(conv.Id, MessageRole.Assistant, "", conv.Model, ct);
+        var assistantMsg = await _conversations.AppendMessageAsync(conv.Id, MessageRole.Assistant, "", model, ct);
         yield return new ChatTurnEvent.AssistantMessageCreated(assistantMsg.Id);
 
         // 3. build prompt
@@ -89,7 +107,13 @@ public class ChatService : IChatService
             .ToList();
         history.Add(new ChatMessagePayload(MessageRole.User, userContent));
 
-        var payload = new ChatRequestPayload(conv.Model, history);
+        // Base instructions (language hint etc.) always lead the prompt, outside
+        // the 50-message window so they are never truncated away.
+        var instructions = ChatInstructions.Build(locale, _chatOptions.SystemPromptTemplate);
+        if (!string.IsNullOrWhiteSpace(instructions))
+            history.Insert(0, new ChatMessagePayload(MessageRole.System, instructions));
+
+        var payload = new ChatRequestPayload(model, history);
         var provider = _providers.Get(conv.Provider);
 
         var buffer = new System.Text.StringBuilder();

@@ -1,3 +1,5 @@
+using Cortex.Core.Objects;
+
 namespace Cortex.Core.Auth;
 
 public class JwtOptions
@@ -28,15 +30,36 @@ public class ProviderOptions
 {
     public ProviderEndpoint OpenRouter { get; set; } = new();
     public ProviderEndpoint Ollama { get; set; } = new();
+    public ProviderEndpoint LmStudio { get; set; } = new();
+
+    public ProviderEndpoint For(ChatProviderKind kind) => kind switch
+    {
+        ChatProviderKind.OpenRouter => OpenRouter,
+        ChatProviderKind.Ollama => Ollama,
+        ChatProviderKind.LmStudio => LmStudio,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
 
     public class ProviderEndpoint
     {
         public string BaseUrl { get; set; } = string.Empty;
         public string? ApiKey { get; set; }
+
+        /// <summary>Fallback when a conversation/request carries no model.
+        /// Matched against model ids ignoring case, with ":latest" implied
+        /// (e.g. "gemma3" matches "gemma3:latest").</summary>
+        public string? DefaultModel { get; set; }
     }
 }
 
 public class CorsOptions
 {
     public string[] AllowedOrigins { get; set; } = Array.Empty<string>();
+}
+
+/// <summary>Chat behaviour knobs. <see cref="SystemPromptTemplate"/> may use
+/// the {language} placeholder, replaced per request with the caller's locale.</summary>
+public class ChatOptions
+{
+    public string? SystemPromptTemplate { get; set; }
 }

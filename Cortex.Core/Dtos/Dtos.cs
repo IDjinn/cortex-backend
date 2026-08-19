@@ -59,14 +59,16 @@ public record MessageResponse(
 
 public record ChatRequest(
     Guid ConversationId,
-    string Content);
+    string Content,
+    string? Locale = null);
 
 public record AnonymousChatRequest(
     ChatProviderKind Provider,
-    string Model,
+    string? Model,
     List<AnonymousChatMessage> Messages,
     double? Temperature = null,
-    int? MaxTokens = null);
+    int? MaxTokens = null,
+    string? Locale = null);
 
 public record AnonymousChatMessage(MessageRole Role, string Content);
 
@@ -78,6 +80,7 @@ public record ModelResponse(
     string? Description,
     int? ContextLength,
     decimal? PromptPrice,
-    decimal? CompletionPrice);
+    decimal? CompletionPrice,
+    bool IsDefault = false);
 
 public record ErrorDetail(string Error, string? Detail = null);

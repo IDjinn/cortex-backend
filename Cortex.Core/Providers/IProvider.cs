@@ -48,6 +48,4 @@ public abstract record ChatChunk
 public interface IProviderFactory
 {
     IProvider Get(ChatProviderKind kind);
-    IProvider GetOpenRouter();
-    IProvider GetOllama();
 }

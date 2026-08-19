@@ -16,5 +16,6 @@ public enum MessageRole
 public enum ChatProviderKind
 {
     OpenRouter,
-    Ollama
+    Ollama,
+    LmStudio
 }

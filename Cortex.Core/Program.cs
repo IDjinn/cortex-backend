@@ -29,6 +29,7 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<OAuthOptions>(builder.Configuration.GetSection("OAuth"));
 builder.Services.Configure<ProviderOptions>(builder.Configuration.GetSection("Providers"));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection("Cors"));
+builder.Services.Configure<ChatOptions>(builder.Configuration.GetSection("Chat"));
 
 // ---- Auth services ----
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -46,8 +47,10 @@ builder.Services.AddSingleton<IModelService, ModelService>();
 // ---- Providers ----
 builder.Services.AddHttpClient(OpenRouterProvider.HttpClientName);
 builder.Services.AddHttpClient(OllamaProvider.HttpClientName);
+builder.Services.AddHttpClient(LmStudioProvider.HttpClientName);
 builder.Services.AddSingleton<OpenRouterProvider>();
 builder.Services.AddSingleton<OllamaProvider>();
+builder.Services.AddSingleton<LmStudioProvider>();
 builder.Services.AddSingleton<IProviderFactory, ProviderFactory>();
 
 // ---- JWT auth ----

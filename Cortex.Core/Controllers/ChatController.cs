@@ -33,7 +33,8 @@ public class ChatController : ControllerBase
         Response.Headers["X-Accel-Buffering"] = "no";
 
         await using var writer = new StreamWriter(Response.Body);
-        writer.AutoFlush = true;
+        // No AutoFlush: its setter Flush()es synchronously, which Kestrel
+        // (AllowSynchronousIO=false) rejects. SendEvent FlushAsync()s per event.
 
         async Task SendEvent(string type, object? data)
         {
@@ -45,7 +46,7 @@ public class ChatController : ControllerBase
 
         try
         {
-            await foreach (var ev in _chat.StreamTurnAsync(_me.UserId, req.ConversationId, req.Content, ct))
+            await foreach (var ev in _chat.StreamTurnAsync(_me.UserId, req.ConversationId, req.Content, req.Locale, ct))
             {
                 switch (ev)
                 {
