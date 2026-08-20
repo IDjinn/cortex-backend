@@ -155,6 +155,7 @@ public record ImportResultResponse(int Imported);
 public record CreateMemoryRequest(
     MemoryScope Scope,
     Guid? ConversationId,
+    Guid? ProjectId,
     string Content);
 
 public record UpdateMemoryRequest(string Content);
@@ -163,10 +164,18 @@ public record MemoryResponse(
     Guid Id,
     MemoryScope Scope,
     Guid? ConversationId,
+    Guid? ProjectId,
     MemorySource Source,
     string Content,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
+
+public record BulkDeleteMemoriesRequest(IReadOnlyList<Guid> Ids);
+
+/// <summary>At least one filter is required — clear is never "everything".</summary>
+public record ClearMemoriesRequest(MemoryScope? Scope, Guid? ProjectId, Guid? ConversationId);
+
+public record BulkMemoryResultResponse(int Deleted);
 
 public record ImportMemoryDto(string Content);
 

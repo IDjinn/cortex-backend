@@ -117,8 +117,15 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
+            // Project knowledge dies with the project (Claude parity) — unlike
+            // conversations, which are merely unfiled (SetNull).
+            e.HasOne(x => x.Project)
+                .WithMany()
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.UserId, x.Scope });
             e.HasIndex(x => new { x.UserId, x.ConversationId });
+            e.HasIndex(x => new { x.UserId, x.ProjectId });
         });
 
         b.Entity<Project>(e =>

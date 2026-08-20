@@ -2,8 +2,8 @@ namespace Cortex.Core.Objects;
 
 /// <summary>
 /// A persistent fact about the user injected into the prompt as context.
-/// Scoped: Global (all conversations), Conversation (a single conversation);
-/// Project is reserved until the Project entity exists.
+/// Scoped: Global (all conversations), Project (a project or folder and its
+/// folders' conversations), Conversation (a single conversation).
 /// </summary>
 public class Memory
 {
@@ -16,6 +16,10 @@ public class Memory
     /// <summary>Required when Scope == Conversation; null otherwise.</summary>
     public Guid? ConversationId { get; set; }
     public Conversation? Conversation { get; set; }
+
+    /// <summary>Required when Scope == Project (project or folder); null otherwise.</summary>
+    public Guid? ProjectId { get; set; }
+    public Project? Project { get; set; }
 
     /// <summary>Manual (user-written) or Extracted (proposed by the assistant and confirmed).</summary>
     public MemorySource Source { get; set; } = MemorySource.Manual;

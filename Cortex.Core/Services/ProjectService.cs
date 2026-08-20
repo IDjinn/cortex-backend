@@ -11,6 +11,7 @@ public interface IProjectService
     Task<Project> CreateAsync(Guid userId, string name, Guid? parentId, CancellationToken ct = default);
     Task<Project> RenameAsync(Guid userId, Guid id, string name, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid userId, Guid id, CancellationToken ct = default);
+    Task<bool> AnyAsync(Guid userId, Guid id, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -81,4 +82,7 @@ public class ProjectService : IProjectService
         await _db.SaveChangesAsync(ct);
         return true;
     }
+
+    public Task<bool> AnyAsync(Guid userId, Guid id, CancellationToken ct = default) =>
+        _db.Projects.AnyAsync(p => p.UserId == userId && p.Id == id, ct);
 }

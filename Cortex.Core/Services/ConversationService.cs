@@ -8,7 +8,7 @@ namespace Cortex.Core.Services;
 
 public interface IConversationService
 {
-    Task<List<Conversation>> ListAsync(Guid userId, CancellationToken ct = default);
+    Task<List<(Conversation Conv, int MessageCount)>> ListAsync(Guid userId, CancellationToken ct = default);
     Task<Conversation?> GetAsync(Guid userId, Guid id, CancellationToken ct = default);
     Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, Guid? projectId = null, CancellationToken ct = default);
     Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, string? projectId = null, CancellationToken ct = default);
@@ -24,12 +24,16 @@ public class ConversationService : IConversationService
 
     public ConversationService(AppDbContext db) => _db = db;
 
-    public Task<List<Conversation>> ListAsync(Guid userId, CancellationToken ct = default) =>
-        _db.Conversations
+    // MessageCount projects to a SQL subquery — message rows are never loaded.
+    public async Task<List<(Conversation Conv, int MessageCount)>> ListAsync(Guid userId, CancellationToken ct = default) =>
+        (await _db.Conversations
             .Where(c => c.UserId == userId)
             .OrderByDescending(c => c.Pinned)
             .ThenByDescending(c => c.UpdatedAt)
-            .ToListAsync(ct);
+            .Select(c => new { Conv = c, MessageCount = c.Messages.Count })
+            .ToListAsync(ct))
+        .Select(x => (x.Conv, x.MessageCount))
+        .ToList();
 
     public Task<Conversation?> GetAsync(Guid userId, Guid id, CancellationToken ct = default) =>
         _db.Conversations

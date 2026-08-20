@@ -27,7 +27,7 @@ public class ConversationsController : ControllerBase
     public async Task<IActionResult> List(CancellationToken ct)
     {
         var list = await _svc.ListAsync(_me.UserId, ct);
-        return Ok(list.Select(ToResponse));
+        return Ok(list.Select(x => ToResponse(x.Conv, x.MessageCount)));
     }
 
     [HttpGet("{id:guid}")]
@@ -76,7 +76,7 @@ public class ConversationsController : ControllerBase
         return ok ? NoContent() : NotFound();
     }
 
-    private static ConversationResponse ToResponse(Conversation c) => new(
-        c.Id, c.Title, c.Provider, c.Model, c.Pinned, c.CreatedAt, c.UpdatedAt, c.Messages.Count,
+    private static ConversationResponse ToResponse(Conversation c, int messageCount = 0) => new(
+        c.Id, c.Title, c.Provider, c.Model, c.Pinned, c.CreatedAt, c.UpdatedAt, messageCount,
         c.FallbackProvider, c.FallbackModel, c.ProjectId);
 }
