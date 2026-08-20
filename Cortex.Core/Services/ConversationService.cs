@@ -10,8 +10,8 @@ public interface IConversationService
 {
     Task<List<Conversation>> ListAsync(Guid userId, CancellationToken ct = default);
     Task<Conversation?> GetAsync(Guid userId, Guid id, CancellationToken ct = default);
-    Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, CancellationToken ct = default);
-    Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, CancellationToken ct = default);
+    Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, Guid? projectId = null, CancellationToken ct = default);
+    Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, string? projectId = null, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid userId, Guid id, CancellationToken ct = default);
     Task<Message> AppendMessageAsync(Guid conversationId, MessageRole role, string content, string? model, CancellationToken ct = default);
     Task FinalizeAssistantMessageAsync(Guid messageId, int? tokensIn, int? tokensOut, string? error, CancellationToken ct = default);
@@ -36,21 +36,25 @@ public class ConversationService : IConversationService
             .Include(c => c.Messages.OrderBy(m => m.CreatedAt))
             .FirstOrDefaultAsync(c => c.UserId == userId && c.Id == id, ct);
 
-    public async Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, CancellationToken ct = default)
+    public async Task<Conversation> CreateAsync(Guid userId, string? title, ChatProviderKind provider, string model, Guid? projectId = null, CancellationToken ct = default)
     {
+        // An unknown/unowned project id leaves the conversation unfiled rather than failing the create.
+        var projectOk = projectId is null
+            || await _db.Projects.AnyAsync(p => p.UserId == userId && p.Id == projectId, ct);
         var conv = new Conversation
         {
             UserId = userId,
             Title = string.IsNullOrWhiteSpace(title) ? "Nova conversa" : title,
             Provider = provider,
-            Model = model
+            Model = model,
+            ProjectId = projectOk ? projectId : null
         };
         _db.Conversations.Add(conv);
         await _db.SaveChangesAsync(ct);
         return conv;
     }
 
-    public async Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(Guid userId, Guid id, string? title, bool? pinned, ChatProviderKind? provider = null, string? model = null, string? fallbackProvider = null, string? fallbackModel = null, string? projectId = null, CancellationToken ct = default)
     {
         var conv = await _db.Conversations.FirstOrDefaultAsync(c => c.UserId == userId && c.Id == id, ct);
         if (conv is null) return false;
@@ -64,6 +68,14 @@ public class ConversationService : IConversationService
             conv.FallbackProvider = fallbackProvider.Length == 0 ? null : fallbackProvider;
         if (fallbackModel is not null)
             conv.FallbackModel = fallbackModel.Length == 0 ? null : fallbackModel;
+        // Workspace filing: empty string unfiles; a valid owned project/folder files it.
+        if (projectId is not null)
+        {
+            if (projectId.Length == 0) conv.ProjectId = null;
+            else if (Guid.TryParse(projectId, out var pid)
+                     && await _db.Projects.AnyAsync(p => p.UserId == userId && p.Id == pid, ct))
+                conv.ProjectId = pid;
+        }
         conv.Touch();
         await _db.SaveChangesAsync(ct);
         return true;

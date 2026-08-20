@@ -3,6 +3,7 @@ using System;
 using Cortex.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cortex.Core.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260819174420_MessageReasoning")]
+    partial class MessageReasoning
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -48,9 +51,6 @@ namespace Cortex.Core.Migrations
                     b.Property<bool>("Pinned")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid?>("ProjectId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -68,8 +68,6 @@ namespace Cortex.Core.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ProjectId");
 
                     b.HasIndex("UserId", "UpdatedAt");
 
@@ -165,38 +163,6 @@ namespace Cortex.Core.Migrations
                     b.HasIndex("ConversationId", "CreatedAt");
 
                     b.ToTable("messages", (string)null);
-                });
-
-            modelBuilder.Entity("Cortex.Core.Objects.Project", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamptz");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid?>("ParentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamptz");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("projects", (string)null);
                 });
 
             modelBuilder.Entity("Cortex.Core.Objects.ProviderKey", b =>
@@ -306,18 +272,11 @@ namespace Cortex.Core.Migrations
 
             modelBuilder.Entity("Cortex.Core.Objects.Conversation", b =>
                 {
-                    b.HasOne("Cortex.Core.Objects.Project", "Project")
-                        .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Cortex.Core.Objects.User", "User")
                         .WithMany("Conversations")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Project");
 
                     b.Navigation("User");
                 });
@@ -349,24 +308,6 @@ namespace Cortex.Core.Migrations
                         .IsRequired();
 
                     b.Navigation("Conversation");
-                });
-
-            modelBuilder.Entity("Cortex.Core.Objects.Project", b =>
-                {
-                    b.HasOne("Cortex.Core.Objects.Project", "Parent")
-                        .WithMany()
-                        .HasForeignKey("ParentId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("Cortex.Core.Objects.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Parent");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Cortex.Core.Objects.ProviderKey", b =>

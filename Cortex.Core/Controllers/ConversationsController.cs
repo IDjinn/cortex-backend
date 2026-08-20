@@ -40,13 +40,13 @@ public class ConversationsController : ControllerBase
             conv.CreatedAt, conv.UpdatedAt,
             conv.Messages.Select(m => new MessageResponse(
                 m.Id, m.Role, m.Content, m.Model, m.TokensIn, m.TokensOut, m.Error, m.CreatedAt, m.Cost, m.Reasoning)).ToList(),
-            conv.FallbackProvider, conv.FallbackModel));
+            conv.FallbackProvider, conv.FallbackModel, conv.ProjectId));
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateConversationRequest req, CancellationToken ct)
     {
-        var conv = await _svc.CreateAsync(_me.UserId, req.Title, req.Provider, req.Model, ct);
+        var conv = await _svc.CreateAsync(_me.UserId, req.Title, req.Provider, req.Model, req.ProjectId, ct);
         return CreatedAtAction(nameof(Get), new { id = conv.Id }, ToResponse(conv));
     }
 
@@ -65,7 +65,7 @@ public class ConversationsController : ControllerBase
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateConversationRequest req, CancellationToken ct)
     {
-        var ok = await _svc.UpdateAsync(_me.UserId, id, req.Title, req.Pinned, req.Provider, req.Model, req.FallbackProvider, req.FallbackModel, ct);
+        var ok = await _svc.UpdateAsync(_me.UserId, id, req.Title, req.Pinned, req.Provider, req.Model, req.FallbackProvider, req.FallbackModel, req.ProjectId, ct);
         return ok ? NoContent() : NotFound();
     }
 
@@ -78,5 +78,5 @@ public class ConversationsController : ControllerBase
 
     private static ConversationResponse ToResponse(Conversation c) => new(
         c.Id, c.Title, c.Provider, c.Model, c.Pinned, c.CreatedAt, c.UpdatedAt, c.Messages.Count,
-        c.FallbackProvider, c.FallbackModel);
+        c.FallbackProvider, c.FallbackModel, c.ProjectId);
 }

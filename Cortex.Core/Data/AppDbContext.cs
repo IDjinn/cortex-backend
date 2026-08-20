@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Memory> Memories => Set<Memory>();
+    public DbSet<Project> Projects => Set<Project>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -74,7 +75,13 @@ public class AppDbContext : DbContext
                 .WithMany(u => u.Conversations)
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            // Filing into a project/folder; deleting the project unfiles (SetNull), never deletes chats.
+            e.HasOne(x => x.Project)
+                .WithMany()
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.UserId, x.UpdatedAt });
+            e.HasIndex(x => x.ProjectId);
         });
 
         b.Entity<Message>(e =>
@@ -112,6 +119,26 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.UserId, x.Scope });
             e.HasIndex(x => new { x.UserId, x.ConversationId });
+        });
+
+        b.Entity<Project>(e =>
+        {
+            e.ToTable("projects");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnType("timestamptz");
+            e.Property(x => x.UpdatedAt).HasColumnType("timestamptz");
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Folders cascade with their project (2 levels; no cycles possible).
+            e.HasOne(x => x.Parent)
+                .WithMany()
+                .HasForeignKey(x => x.ParentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.ParentId);
         });
     }
 }

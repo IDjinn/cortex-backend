@@ -21,7 +21,8 @@ public record RefreshRequest(string RefreshToken);
 public record CreateConversationRequest(
     string? Title,
     ChatProviderKind Provider,
-    string Model);
+    string Model,
+    Guid? ProjectId = null);
 
 public record UpdateConversationRequest(
     string? Title,
@@ -30,7 +31,9 @@ public record UpdateConversationRequest(
     string? Model = null,
     /// <summary>Empty string clears the fallback.</summary>
     string? FallbackProvider = null,
-    string? FallbackModel = null);
+    string? FallbackModel = null,
+    /// <summary>Empty string unfiles the conversation from its project/folder.</summary>
+    string? ProjectId = null);
 
 public record ConversationResponse(
     Guid Id,
@@ -42,7 +45,8 @@ public record ConversationResponse(
     DateTimeOffset UpdatedAt,
     int MessageCount,
     string? FallbackProvider = null,
-    string? FallbackModel = null);
+    string? FallbackModel = null,
+    Guid? ProjectId = null);
 
 public record ConversationDetailResponse(
     Guid Id,
@@ -54,7 +58,8 @@ public record ConversationDetailResponse(
     DateTimeOffset UpdatedAt,
     List<MessageResponse> Messages,
     string? FallbackProvider = null,
-    string? FallbackModel = null);
+    string? FallbackModel = null,
+    Guid? ProjectId = null);
 
 public record MessageResponse(
     Guid Id,
@@ -164,3 +169,19 @@ public record MemoryResponse(
     DateTimeOffset UpdatedAt);
 
 public record ImportMemoryDto(string Content);
+
+// ---- Projects ----
+
+/// <summary>ParentId set creates a folder inside that root project.</summary>
+public record CreateProjectRequest(string Name, Guid? ParentId = null);
+
+public record UpdateProjectRequest(string Name);
+
+public record ProjectResponse(
+    Guid Id,
+    Guid? ParentId,
+    string Name,
+    /// <summary>Conversations filed directly in this project/folder (folders not summed).</summary>
+    int ConversationCount,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);

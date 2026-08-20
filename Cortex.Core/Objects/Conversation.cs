@@ -16,6 +16,10 @@ public class Conversation
     public string? FallbackProvider { get; set; }
     public string? FallbackModel { get; set; }
 
+    /// <summary>Workspace project (or folder) this conversation is filed under; null = unfiled.</summary>
+    public Guid? ProjectId { get; set; }
+    public Project? Project { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
