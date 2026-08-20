@@ -13,6 +13,9 @@ public class Message
     public int? TokensIn { get; set; }
     public int? TokensOut { get; set; }
 
+    /// <summary>Chain-of-thought produced by reasoning models; null for plain answers.</summary>
+    public string? Reasoning { get; set; }
+
     /// <summary>USD cost of the turn (tokens × model price); null for local/free models.</summary>
     public decimal? Cost { get; set; }
 

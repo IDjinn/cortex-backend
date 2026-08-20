@@ -136,7 +136,13 @@ public sealed class AnthropicProvider : IProvider
                     if (root.TryGetProperty("delta", out var delta))
                     {
                         var type = delta.TryGetProperty("type", out var dt) ? dt.GetString() : null;
-                        if (type == "text_delta" && delta.TryGetProperty("text", out var tx))
+                        if (type == "thinking_delta" && delta.TryGetProperty("thinking", out var th))
+                        {
+                            var thinking = th.GetString();
+                            if (!string.IsNullOrEmpty(thinking))
+                                yield return new ChatChunk.Reasoning(thinking);
+                        }
+                        else if (type == "text_delta" && delta.TryGetProperty("text", out var tx))
                         {
                             var text = tx.GetString();
                             if (!string.IsNullOrEmpty(text))

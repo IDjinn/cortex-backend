@@ -68,6 +68,9 @@ public class ChatController : ControllerBase
                     case ChatTurnEvent.Token t:
                         await SendEvent("token", new { value = t.Text });
                         break;
+                    case ChatTurnEvent.ReasoningDelta r:
+                        await SendEvent("reasoning", new { value = r.Text });
+                        break;
                     case ChatTurnEvent.ToolCallChunk tc:
                         await SendEvent("toolCall", new { id = tc.Id, name = tc.Name, arguments = tc.ArgumentsJson });
                         break;

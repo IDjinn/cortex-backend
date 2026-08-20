@@ -120,7 +120,13 @@ public sealed class GeminiProvider : IProvider
                     {
                         var text = tx.GetString();
                         if (!string.IsNullOrEmpty(text))
-                            yield return new ChatChunk.Token(text);
+                        {
+                            // Thought-summary parts are Gemini's chain of thought.
+                            var isThought = part.TryGetProperty("thought", out var th) && th.ValueKind == JsonValueKind.True;
+                            yield return isThought
+                                ? new ChatChunk.Reasoning(text)
+                                : new ChatChunk.Token(text);
+                        }
                     }
                     if (part.TryGetProperty("functionCall", out var fc))
                     {

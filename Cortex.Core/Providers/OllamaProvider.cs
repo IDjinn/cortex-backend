@@ -101,13 +101,25 @@ public sealed class OllamaProvider : IProvider
             using var chunk = JsonDocument.Parse(line);
             var root = chunk.RootElement;
 
-            if (root.TryGetProperty("message", out var msg) &&
-                msg.TryGetProperty("content", out var c) &&
-                c.ValueKind == JsonValueKind.String)
+            if (root.TryGetProperty("message", out var msg))
             {
-                var text = c.GetString();
-                if (!string.IsNullOrEmpty(text))
-                    yield return new ChatChunk.Token(text);
+                if (msg.TryGetProperty("content", out var c) &&
+                    c.ValueKind == JsonValueKind.String)
+                {
+                    var text = c.GetString();
+                    if (!string.IsNullOrEmpty(text))
+                        yield return new ChatChunk.Token(text);
+                }
+
+                // Thinking models (deepseek-r1, qwen3, …) stream their chain of
+                // thought in a separate `thinking` field when enabled.
+                if (msg.TryGetProperty("thinking", out var th) &&
+                    th.ValueKind == JsonValueKind.String)
+                {
+                    var thinking = th.GetString();
+                    if (!string.IsNullOrEmpty(thinking))
+                        yield return new ChatChunk.Reasoning(thinking);
+                }
             }
 
             if (root.TryGetProperty("prompt_eval_count", out var pec) && pec.TryGetInt32(out var pecv)) promptTokens = pecv;

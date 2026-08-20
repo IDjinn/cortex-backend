@@ -63,6 +63,8 @@ public record ChatMessagePayload(
 public abstract record ChatChunk
 {
     public sealed record Token(string Text) : ChatChunk;
+    /// <summary>Chain-of-thought delta (reasoning models) — displayed separately from the answer.</summary>
+    public sealed record Reasoning(string Text) : ChatChunk;
     public sealed record ToolCall(string Id, string Name, string ArgumentsJson) : ChatChunk;
     public sealed record Usage(int? PromptTokens, int? CompletionTokens) : ChatChunk;
     public sealed record Done() : ChatChunk;

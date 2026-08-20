@@ -128,6 +128,9 @@ public class AnonymousChatController : ControllerBase
                     case ChatChunk.Token t:
                         await SendEvent("token", new { value = t.Text });
                         break;
+                    case ChatChunk.Reasoning r:
+                        await SendEvent("reasoning", new { value = r.Text });
+                        break;
                     case ChatChunk.ToolCall tc:
                         await SendEvent("toolCall", new { id = tc.Id, name = tc.Name, arguments = tc.ArgumentsJson });
                         break;

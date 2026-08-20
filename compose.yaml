@@ -7,7 +7,9 @@
       POSTGRES_PASSWORD: cortex_dev
       POSTGRES_DB: cortex
     ports:
-      - "5432:5432"
+      # Host port 5433: another stack already publishes 5432 on this machine
+      # and Docker Desktop keeps routing 5432 traffic to it.
+      - "5433:5432"
     volumes:
       - cortex_pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d

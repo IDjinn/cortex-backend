@@ -28,6 +28,8 @@ public abstract record ChatTurnEvent
     public sealed record UserMessageSaved(Guid MessageId) : ChatTurnEvent;
     public sealed record AssistantMessageCreated(Guid MessageId) : ChatTurnEvent;
     public sealed record Token(string Text) : ChatTurnEvent;
+    /// <summary>Chain-of-thought delta from a reasoning model — kept separate from the answer.</summary>
+    public sealed record ReasoningDelta(string Text) : ChatTurnEvent;
     public sealed record ToolCallChunk(string Id, string Name, string ArgumentsJson) : ChatTurnEvent;
     public sealed record Notice(string Message) : ChatTurnEvent;
     public sealed record Completed(int? TokensIn, int? TokensOut, string Provider, string Model, decimal? CostUsd) : ChatTurnEvent;
@@ -145,6 +147,7 @@ public class ChatService : IChatService
             attempts.Add(fallback);
 
         var buffer = new System.Text.StringBuilder();
+        var reasoningBuffer = new System.Text.StringBuilder();
         int? tokensIn = null;
         int? tokensOut = null;
         string? error = null;
@@ -171,6 +174,7 @@ public class ChatService : IChatService
             var attemptContext = new ProviderCallContext(attemptKey, context?.BaseUrl);
 
             buffer.Clear();
+            reasoningBuffer.Clear();
             error = null;
             tokensIn = null;
             tokensOut = null;
@@ -186,6 +190,11 @@ public class ChatService : IChatService
                         gotOutput = true;
                         buffer.Append(t.Text);
                         yield return new ChatTurnEvent.Token(t.Text);
+                        break;
+                    case ChatChunk.Reasoning r:
+                        gotOutput = true;
+                        reasoningBuffer.Append(r.Text);
+                        yield return new ChatTurnEvent.ReasoningDelta(r.Text);
                         break;
                     case ChatChunk.ToolCall tc:
                         gotOutput = true;
@@ -218,6 +227,7 @@ public class ChatService : IChatService
         if (toSave is not null)
         {
             toSave.Content = buffer.ToString();
+            toSave.Reasoning = reasoningBuffer.Length > 0 ? reasoningBuffer.ToString() : null;
             toSave.TokensIn = tokensIn;
             toSave.TokensOut = tokensOut;
             toSave.Cost = cost;

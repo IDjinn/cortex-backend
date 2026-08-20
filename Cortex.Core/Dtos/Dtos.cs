@@ -65,7 +65,8 @@ public record MessageResponse(
     int? TokensOut,
     string? Error,
     DateTimeOffset CreatedAt,
-    decimal? CostUsd = null);
+    decimal? CostUsd = null,
+    string? Reasoning = null);
 
 public record ChatRequest(
     Guid ConversationId,

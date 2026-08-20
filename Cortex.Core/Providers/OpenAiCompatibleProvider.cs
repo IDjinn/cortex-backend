@@ -171,6 +171,21 @@ public abstract class OpenAiCompatibleProvider : IProvider
                             yield return new ChatChunk.Token(text);
                     }
 
+                    // Reasoning deltas: OpenRouter/xAI use `reasoning`,
+                    // DeepSeek/llama.cpp-based servers use `reasoning_content`.
+                    if (delta.TryGetProperty("reasoning", out var r) && r.ValueKind == JsonValueKind.String)
+                    {
+                        var reasoning = r.GetString();
+                        if (!string.IsNullOrEmpty(reasoning))
+                            yield return new ChatChunk.Reasoning(reasoning);
+                    }
+                    if (delta.TryGetProperty("reasoning_content", out var rc) && rc.ValueKind == JsonValueKind.String)
+                    {
+                        var reasoningContent = rc.GetString();
+                        if (!string.IsNullOrEmpty(reasoningContent))
+                            yield return new ChatChunk.Reasoning(reasoningContent);
+                    }
+
                     if (delta.TryGetProperty("tool_calls", out var tcs) && tcs.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var tc in tcs.EnumerateArray())

@@ -15,7 +15,7 @@ dotnet ef database update -p Cortex.Core   # apply migrations
 ```
 
 - SDK pinned by `global.json` (10.0.201, no prereleases).
-- Migrations are **never auto-applied** (no `Database.Migrate()` in `Program.cs`) — run `database update` after adding one.
+- Migrations are auto-applied on startup (`Database.MigrateAsync()` early in `Program.cs`) — no manual `database update` needed after adding one.
 - Ollama is expected already running at `http://localhost:11434` (not part of compose).
 - No test project exists. No linter — compile is the only check.
 

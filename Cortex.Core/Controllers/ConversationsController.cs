@@ -39,7 +39,7 @@ public class ConversationsController : ControllerBase
             conv.Id, conv.Title, conv.Provider, conv.Model, conv.Pinned,
             conv.CreatedAt, conv.UpdatedAt,
             conv.Messages.Select(m => new MessageResponse(
-                m.Id, m.Role, m.Content, m.Model, m.TokensIn, m.TokensOut, m.Error, m.CreatedAt, m.Cost)).ToList(),
+                m.Id, m.Role, m.Content, m.Model, m.TokensIn, m.TokensOut, m.Error, m.CreatedAt, m.Cost, m.Reasoning)).ToList(),
             conv.FallbackProvider, conv.FallbackModel));
     }
 
